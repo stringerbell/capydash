@@ -312,4 +312,35 @@ body, html {
 .mute-button:hover {
   background-color: rgba(102, 51, 0, 0.9);
   transform: scale(1.05);
+}
+
+.nightmare-mode {
+  position: absolute;
+  top: 100px;
+  left: 10px;
+  background-color: rgba(153, 0, 0, 0.8);
+  border: 2px solid #aa0000;
+  border-radius: 8px;
+  color: white;
+  padding: 8px 12px;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 100;
+  animation: pulse 1s infinite alternate;
+  text-shadow: 0 0 5px #ff0000;
+  letter-spacing: 1px;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+    text-shadow: 0 0 5px #ff0000;
+    transform: scale(1);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 30px rgba(255, 0, 0, 0.5);
+    text-shadow: 0 0 15px #ff0000;
+    transform: scale(1.05);
+  }
 } 

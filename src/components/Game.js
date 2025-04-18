@@ -5,6 +5,8 @@ import '../styles/game.css';
 import capybaraPattern from '../assets/Cute_Capybara_Character_Seamless_Pattern_high_resolution_preview_2105908.jpg';
 import normalMusic from '../assets/normal.mp3';
 import alternateMusic from '../assets/alternate.mp3';
+import nightmareMusic1 from '../nightmare-1.mp3';
+import nightmareMusic2 from '../nightmare-2.mp3';
 
 // Using window dimensions for full-screen
 const GAME_WIDTH = window.innerWidth;
@@ -17,12 +19,18 @@ const CHARACTER_SIZE = 90;
 
 // Difficulty levels - more challenging progression
 const DIFFICULTY_LEVELS = [
-  { name: "Normal", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 },
-  { name: "Hard", speedMultiplier: 1.3, obstacleFrequency: 1700, platformFrequency: 3500 },
-  { name: "Very Hard", speedMultiplier: 1.6, obstacleFrequency: 1500, platformFrequency: 3000 },
-  { name: "Extreme", speedMultiplier: 2.0, obstacleFrequency: 1300, platformFrequency: 2500 },
-  { name: "Impossible", speedMultiplier: 2.5, obstacleFrequency: 1100, platformFrequency: 2000 },
-  { name: "Nightmare", speedMultiplier: 3.0, obstacleFrequency: 900, platformFrequency: 1800 }
+  { name: "Easy", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 },
+  { name: "Normal", speedMultiplier: 1.3, obstacleFrequency: 1700, platformFrequency: 3500 },
+  { name: "Hard", speedMultiplier: 1.6, obstacleFrequency: 1500, platformFrequency: 3000 },
+  { name: "Very Hard", speedMultiplier: 2.0, obstacleFrequency: 1300, platformFrequency: 2500 },
+  { name: "Extreme", speedMultiplier: 2.5, obstacleFrequency: 1100, platformFrequency: 2000 },
+  { name: "Impossible", speedMultiplier: 3.0, obstacleFrequency: 900, platformFrequency: 1800 },
+  { name: "Insane", speedMultiplier: 3.5, obstacleFrequency: 700, platformFrequency: 1500 },
+  { name: "Nightmare", speedMultiplier: 4.0, obstacleFrequency: 500, platformFrequency: 1200 },
+  { name: "Hell", speedMultiplier: 4.5, obstacleFrequency: 300, platformFrequency: 1000 },
+  { name: "Godzilla", speedMultiplier: 5.5, obstacleFrequency: 50, platformFrequency: 250 },
+  { name: "Burning Crap", speedMultiplier: 6.0, obstacleFrequency: 10, platformFrequency: 50 },
+
 ];
 
 const Game = () => {
@@ -233,6 +241,16 @@ const Game = () => {
         const newSpeed = INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[newDifficulty].speedMultiplier;
         setGameSpeed(newSpeed);
         
+        // Find the index of the "Insane" difficulty level
+        const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
+        
+        // Switch to nightmare music when reaching 'Insane' difficulty level or above
+        if (newDifficulty >= insaneIndex && 
+            (musicTrack === normalMusic || musicTrack === alternateMusic)) {
+          const randomNightmareTrack = Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2;
+          setMusicTrack(randomNightmareTrack);
+        }
+        
         // Clear and reset obstacle timers with new frequency
         if (obstacleTimerRef.current) {
           clearInterval(obstacleTimerRef.current);
@@ -252,7 +270,7 @@ const Game = () => {
         clearInterval(difficultyTimerRef.current);
       }
     };
-  }, [gameOver, difficultyLevel, startObstacleGeneration, startPlatformGeneration]);
+  }, [gameOver, difficultyLevel, startObstacleGeneration, startPlatformGeneration, musicTrack]);
 
   // Background music
   useEffect(() => {
@@ -489,6 +507,16 @@ const Game = () => {
             if (newDifficulty > difficultyLevel) {
               setDifficultyLevel(newDifficulty);
               setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[newDifficulty].speedMultiplier);
+              
+              // Find the index of the "Insane" difficulty level
+              const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
+              
+              // Switch to nightmare music when reaching 'Insane' difficulty level or above through score increases
+              if (newDifficulty >= insaneIndex && 
+                  (musicTrack === normalMusic || musicTrack === alternateMusic)) {
+                const randomNightmareTrack = Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2;
+                setMusicTrack(randomNightmareTrack);
+              }
             }
           }
         }
@@ -506,7 +534,7 @@ const Game = () => {
     return () => {
       cancelAnimationFrame(requestRef.current);
     };
-  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score, windowDimensions]);
+  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score, windowDimensions, musicTrack]);
 
   // Helper function for collision detection
   const checkCollision = (rect1, rect2) => {
@@ -516,6 +544,22 @@ const Game = () => {
       rect1.y < rect2.y + rect2.height &&
       rect1.y + rect1.height > rect2.y
     );
+  };
+
+  // Helper function to get extreme mode message based on difficulty level
+  const getExtremeMessage = () => {
+    // Find indices of specific difficulty levels
+    const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
+    const nightmareIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Nightmare");
+    const hellIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Hell");
+    const godzillaIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Godzilla");
+    const burningCrapIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Burning Crap");
+    
+    if (difficultyLevel >= burningCrapIndex) return "🔥💩 BURNING CRAP MODE 💩🔥";
+    if (difficultyLevel >= godzillaIndex) return "🔥👹 GODZILLA MODE 👹🔥";
+    if (difficultyLevel >= hellIndex) return "🔥👿 HELL MODE 👿🔥";
+    if (difficultyLevel >= nightmareIndex) return "🔥😱 NIGHTMARE MODE 😱🔥";
+    return "🔥 INSANE MODE 🔥";
   };
 
   const restartGame = () => {
@@ -539,7 +583,7 @@ const Game = () => {
       city: 0,
       grid: 0
     });
-    // Switch to a random music track
+    // Reset to normal/alternate music when restarting game
     setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
     lastTimeRef.current = 0;
   };
@@ -584,6 +628,13 @@ const Game = () => {
       >
         {isMuted ? "🔇 Unmute" : "🔊 Mute"}
       </button>
+      
+      {/* Nightmare mode indicator */}
+      {(musicTrack === nightmareMusic1 || musicTrack === nightmareMusic2) && 
+        <div className="nightmare-mode">
+          {getExtremeMessage()}
+        </div>
+      }
       
       <Character 
         position={characterPosition} 
