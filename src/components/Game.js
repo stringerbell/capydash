@@ -18,6 +18,9 @@ const INITIAL_OBSTACLE_SPEED = 9;
 const GROUND_HEIGHT = 60;
 const CHARACTER_SIZE = 90;
 
+// Debug flag - set to true to display debug controls
+const DEBUG_MODE_DEFAULT = false;
+
 // Difficulty levels - more challenging progression
 const DIFFICULTY_LEVELS = [
   { name: "Easy", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 },
@@ -41,8 +44,11 @@ const Game = () => {
   const startAtInsane = false; // Set to false to revert
   const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
   
+  // Performance optimization flags
+  const [useReducedEffects, setUseReducedEffects] = useState(true); // Less intense effects for better performance
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const [debugMode, setDebugMode] = useState(DEBUG_MODE_DEFAULT);
   const [characterPosition, setCharacterPosition] = useState({ 
     x: GAME_WIDTH * 0.15, // Positioned proportionally to screen width
     y: GAME_HEIGHT - GROUND_HEIGHT - CHARACTER_SIZE,
@@ -127,9 +133,17 @@ const Game = () => {
   // Handle key events
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Jump when pressing space
       if (e.code === 'Space' && !isSpacePressed) {
-        setIsSpacePressed(true);
         jump();
+        setIsSpacePressed(true);
+      }
+      
+      // Toggle debug mode with Ctrl+D
+      if (e.code === 'KeyD' && e.ctrlKey) {
+        e.preventDefault();
+        setDebugMode(prev => !prev);
+        console.log("Debug mode:", !debugMode);
       }
     };
 
@@ -164,10 +178,17 @@ const Game = () => {
   // Function to start obstacle generation
   const startObstacleGeneration = useCallback((frequency) => {
     obstacleTimerRef.current = setInterval(() => {
+      // Reduce obstacle generation frequency when using reduced effects
+      if (useReducedEffects && Math.random() < 0.3) {
+        return; // Skip some obstacle generations for better performance
+      }
+      
       // Check if we should add a spike field or a standard obstacle
       if (Math.random() > 0.7) {
         // Create a field of spikes (small triangles)
-        const spikeCount = Math.floor(Math.random() * 5) + 3; // 3-7 spikes
+        // Reduce spike count in higher difficulties/reduced effects mode
+        const maxSpikes = useReducedEffects || difficultyLevel >= 8 ? 3 : 5;
+        const spikeCount = Math.floor(Math.random() * maxSpikes) + 2; // 2-5 spikes
         const spikes = [];
         
         for (let i = 0; i < spikeCount; i++) {
@@ -200,14 +221,21 @@ const Game = () => {
         ]);
       }
     }, frequency);
-  }, [windowDimensions]);
+  }, [windowDimensions, difficultyLevel, useReducedEffects]);
 
   // Function to start platform generation
   const startPlatformGeneration = useCallback((frequency) => {
     platformTimerRef.current = setInterval(() => {
+      // Reduce platform generation frequency when using reduced effects
+      if (useReducedEffects && Math.random() < 0.4) {
+        return; // Skip some platform generations for better performance
+      }
+      
       if (Math.random() > 0.5) {
         // Generate a column/platform
-        const platformHeight = Math.floor(Math.random() * 3) + 1; // 1-3 platform height units
+        // Reduce platform height in performance mode
+        const maxHeightUnits = useReducedEffects || difficultyLevel >= 8 ? 2 : 3;
+        const platformHeight = Math.floor(Math.random() * maxHeightUnits) + 1; // 1-2/3 platform height units
         const height = platformHeight * 70; // Increased height in pixels
         
         setPlatforms(prev => [
@@ -219,7 +247,8 @@ const Game = () => {
             width: 120, // Increased from 80 to 120
             height: height,
             type: 'column',
-            hasRing: Math.random() > 0.7 // Some columns have rings
+            // Reduce frequency of rings in performance mode
+            hasRing: !useReducedEffects && Math.random() > 0.7 // Some columns have rings
           }
         ]);
       } else {
@@ -240,7 +269,7 @@ const Game = () => {
         ]);
       }
     }, frequency);
-  }, [windowDimensions]);
+  }, [windowDimensions, difficultyLevel, useReducedEffects]);
 
   // Progressive difficulty increase
   useEffect(() => {
@@ -432,22 +461,46 @@ const Game = () => {
 
       // Update obstacles with current game speed
       setObstacles(prev => {
-        return prev
+        // Apply a maximum limit to the number of obstacles to prevent performance issues
+        const maxObstacles = difficultyLevel >= 8 ? 15 : 30;
+        
+        // Map and filter obstacles
+        let updated = prev
           .map(obstacle => ({
             ...obstacle,
             x: obstacle.x - gameSpeed
           }))
           .filter(obstacle => obstacle.x > -100);
+        
+        // Limit the number of obstacles if we have too many
+        if (updated.length > maxObstacles) {
+          // Keep obstacles closer to the player
+          updated = updated.sort((a, b) => a.x - b.x).slice(0, maxObstacles);
+        }
+        
+        return updated;
       });
       
       // Update platforms with current game speed
       setPlatforms(prev => {
-        return prev
+        // Apply a maximum limit to the number of platforms to prevent performance issues
+        const maxPlatforms = difficultyLevel >= 8 ? 10 : 20;
+        
+        // Map and filter platforms
+        let updated = prev
           .map(platform => ({
             ...platform,
             x: platform.x - gameSpeed
           }))
           .filter(platform => platform.x > -200);
+        
+        // Limit the number of platforms if we have too many
+        if (updated.length > maxPlatforms) {
+          // Keep platforms closer to the player
+          updated = updated.sort((a, b) => a.x - b.x).slice(0, maxPlatforms);
+        }
+        
+        return updated;
       });
       
       // Update background positions for parallax effect with speed scaled to difficulty
@@ -525,6 +578,12 @@ const Game = () => {
               
               // Find the index of the "Insane" difficulty level
               const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
+              const hellIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Hell");
+              
+              // Enable reduced effects for performance at Hell level and above
+              if (newDifficulty >= hellIndex) {
+                setUseReducedEffects(true);
+              }
               
               // Switch to nightmare music when reaching 'Insane' difficulty level or above through score increases
               if (newDifficulty >= insaneIndex && 
@@ -592,6 +651,9 @@ const Game = () => {
     setDifficultyLevel(startLevel);
     setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[startLevel].speedMultiplier);
     
+    // Keep reduced effects enabled
+    // setUseReducedEffects(startLevel >= 8);
+    
     setCharacterPosition({ 
       x: windowDimensions.width * 0.15,
       y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
@@ -624,8 +686,8 @@ const Game = () => {
     // Create audio element for nightmare scream
     let screamSound = null;
     
-    // When entering nightmare mode, play a scream
-    if (isInNightmareMode() && !isMuted) {
+    // When entering nightmare mode, play a scream (only in full effects mode)
+    if (isInNightmareMode() && !isMuted && !useReducedEffects) {
       // Create and play scream sound
       screamSound = new Audio();
       screamSound.src = 'https://www.fesliyanstudios.com/play-mp3/6382'; // Evil laugh sound effect
@@ -640,11 +702,11 @@ const Game = () => {
         screamSound.pause();
       }
     };
-  }, [musicTrack, isMuted]);
+  }, [musicTrack, isMuted, useReducedEffects, isInNightmareMode]);
 
   return (
     <div 
-      className={`game-area ${isInNightmareMode() ? 'screen-shake' : ''}`}
+      className={`game-area ${isInNightmareMode() && !useReducedEffects ? 'screen-shake' : ''}`}
       style={{ 
         width: '100vw', 
         height: '100vh', 
@@ -689,8 +751,8 @@ const Game = () => {
             }}
           />
           
-          {/* Blood drips */}
-          <div className="blood-drips" />
+          {/* Blood drips - only in full effects mode */}
+          {!useReducedEffects && <div className="blood-drips" />}
           
           {/* Centered large skull */}
           <div 
@@ -699,21 +761,23 @@ const Game = () => {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '800px',
-              height: '800px',
+              width: useReducedEffects ? '500px' : '800px',
+              height: useReducedEffects ? '500px' : '800px',
               backgroundImage: `url(${skullGif})`,
               backgroundSize: 'contain',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
-              opacity: 0.8,
+              opacity: useReducedEffects ? 0.6 : 0.8,
               zIndex: 6,
-              filter: 'drop-shadow(0 0 30px red) brightness(1.2)',
-              animation: 'pulsate 2s infinite alternate'
+              filter: useReducedEffects ? 
+                'drop-shadow(0 0 15px red)' : 
+                'drop-shadow(0 0 30px red) brightness(1.2)',
+              animation: useReducedEffects ? 'none' : 'pulsate 2s infinite alternate'
             }}
           />
           
-          {/* Multiple floating skulls */}
-          {[...Array(8)].map((_, i) => (
+          {/* Multiple floating skulls - reduced number in performance mode */}
+          {[...Array(useReducedEffects ? 3 : 8)].map((_, i) => (
             <div 
               key={`skull-${i}`}
               className={`floating-skull skull-${i}`}
@@ -729,15 +793,18 @@ const Game = () => {
                 backgroundPosition: 'center',
                 opacity: 0.5,
                 zIndex: 6,
-                filter: 'drop-shadow(0 0 10px red)'
+                filter: useReducedEffects ? 'none' : 'drop-shadow(0 0 10px red)',
+                // Disable animations in reduced effects mode
+                animation: useReducedEffects ? 'none' : undefined
               }}
             />
           ))}
           
-          {/* Red vignette effect */}
-          <div className="vignette" />
+          {/* Red vignette effect - only in full effects mode */}
+          {!useReducedEffects && <div className="vignette" />}
           
-          <div className="nightmare-background" />
+          {/* Only include nightmare background in full effects mode */}
+          {!useReducedEffects && <div className="nightmare-background" />}
         </>
       )}
       
@@ -754,53 +821,66 @@ const Game = () => {
         {isMuted ? "🔇 Unmute" : "🔊 Mute"}
       </button>
       
-      {/* TEMPORARY: Invincibility toggle */}
+      {/* Performance mode toggle */}
       <button 
-        className={`invincible-toggle ${isInvincible ? 'active' : ''}`}
-        onClick={() => setIsInvincible(!isInvincible)}
+        className={`performance-toggle ${useReducedEffects ? 'active' : ''}`}
+        onClick={() => setUseReducedEffects(!useReducedEffects)}
       >
-        {isInvincible ? "🛡️ Invincible ON" : "⚔️ Invincible OFF"}
+        {useReducedEffects ? "🚀 Performance Mode ON" : "🔥 Performance Mode OFF"}
       </button>
       
-      {/* TEMPORARY: Difficulty selector */}
-      <div style={{
-        position: 'absolute',
-        top: 200,
-        right: 10,
-        zIndex: 100,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '5px'
-      }}>
-        {DIFFICULTY_LEVELS.map((level, index) => (
+      {/* Debug controls - only visible in debug mode */}
+      {debugMode && (
+        <>
+          {/* Invincibility toggle */}
           <button 
-            key={level.name}
-            style={{
-              backgroundColor: difficultyLevel === index ? 'rgba(255, 215, 0, 0.8)' : 'rgba(100, 100, 100, 0.8)',
-              border: `2px solid ${difficultyLevel === index ? '#b8860b' : '#444'}`,
-              borderRadius: '8px',
-              color: difficultyLevel === index ? 'black' : 'white',
-              padding: '5px 8px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              opacity: difficultyLevel === index ? 1 : 0.8
-            }}
-            onClick={() => {
-              setDifficultyLevel(index);
-              setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[index].speedMultiplier);
-              // Switch music based on difficulty
-              if (index >= insaneIndex) {
-                setMusicTrack(Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2);
-              } else {
-                setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
-              }
-            }}
+            className={`invincible-toggle ${isInvincible ? 'active' : ''}`}
+            onClick={() => setIsInvincible(!isInvincible)}
           >
-            {level.name}
+            {isInvincible ? "🛡️ Invincible ON" : "⚔️ Invincible OFF"}
           </button>
-        ))}
-      </div>
+          
+          {/* Difficulty selector */}
+          <div style={{
+            position: 'absolute',
+            top: 200,
+            right: 10,
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}>
+            {DIFFICULTY_LEVELS.map((level, index) => (
+              <button 
+                key={level.name}
+                style={{
+                  backgroundColor: difficultyLevel === index ? 'rgba(255, 215, 0, 0.8)' : 'rgba(100, 100, 100, 0.8)',
+                  border: `2px solid ${difficultyLevel === index ? '#b8860b' : '#444'}`,
+                  borderRadius: '8px',
+                  color: difficultyLevel === index ? 'black' : 'white',
+                  padding: '5px 8px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  opacity: difficultyLevel === index ? 1 : 0.8
+                }}
+                onClick={() => {
+                  setDifficultyLevel(index);
+                  setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[index].speedMultiplier);
+                  // Switch music based on difficulty
+                  if (index >= insaneIndex) {
+                    setMusicTrack(Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2);
+                  } else {
+                    setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+                  }
+                }}
+              >
+                {level.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       
       {/* Nightmare mode indicator */}
       {isInNightmareMode() && 
