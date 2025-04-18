@@ -7,10 +7,13 @@ const Obstacle = ({ obstacle }) => {
         className="obstacle triangle"
         style={{
           left: obstacle.x,
-          bottom: 50, // Ground height
+          bottom: obstacle.height < 45 ? 50 : 60, // Adjust bottom based on obstacle size
           width: 0,
           height: 0,
-          position: 'absolute'
+          position: 'absolute',
+          borderLeftWidth: obstacle.width / 2,
+          borderRightWidth: obstacle.width / 2,
+          borderBottomWidth: obstacle.height
         }}
       />
     );
@@ -20,10 +23,13 @@ const Obstacle = ({ obstacle }) => {
         className="obstacle spike"
         style={{
           left: obstacle.x,
-          bottom: 50, // Ground height
+          bottom: 60, // Ground height
           width: 0,
           height: 0,
-          position: 'absolute'
+          position: 'absolute',
+          borderLeftWidth: obstacle.width / 3,
+          borderRightWidth: obstacle.width / 3,
+          borderBottomWidth: obstacle.height
         }}
       />
     );
@@ -37,7 +43,7 @@ const Obstacle = ({ obstacle }) => {
         top: obstacle.y,
         width: obstacle.width,
         height: obstacle.height,
-        backgroundColor: 'white'
+        backgroundColor: '#116611'
       }}
     />
   );

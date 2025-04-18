@@ -2,17 +2,22 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Character from './Character';
 import Obstacle from './Obstacle';
 import '../styles/game.css';
+import capybaraPattern from '../assets/Cute_Capybara_Character_Seamless_Pattern_high_resolution_preview_2105908.jpg';
+import normalMusic from '../assets/normal.mp3';
+import alternateMusic from '../assets/alternate.mp3';
 
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 400;
-const GRAVITY = 1;
-const JUMP_FORCE = -16;
+// Using window dimensions for full-screen
+const GAME_WIDTH = window.innerWidth;
+const GAME_HEIGHT = window.innerHeight;
+const GRAVITY = 0.8;
+const JUMP_FORCE = -18;
 const INITIAL_OBSTACLE_SPEED = 9;
-const GROUND_HEIGHT = 50;
+const GROUND_HEIGHT = 60;
+const CHARACTER_SIZE = 90;
 
 // Difficulty levels - more challenging progression
 const DIFFICULTY_LEVELS = [
-  { name: "Normal", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 }, // Faster initial frequencies
+  { name: "Normal", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 },
   { name: "Hard", speedMultiplier: 1.3, obstacleFrequency: 1700, platformFrequency: 3500 },
   { name: "Very Hard", speedMultiplier: 1.6, obstacleFrequency: 1500, platformFrequency: 3000 },
   { name: "Extreme", speedMultiplier: 2.0, obstacleFrequency: 1300, platformFrequency: 2500 },
@@ -24,8 +29,8 @@ const Game = () => {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [characterPosition, setCharacterPosition] = useState({ 
-    x: 100, 
-    y: GAME_HEIGHT - GROUND_HEIGHT - 40,
+    x: GAME_WIDTH * 0.15, // Positioned proportionally to screen width
+    y: GAME_HEIGHT - GROUND_HEIGHT - CHARACTER_SIZE,
     velocityY: 0,
     isJumping: false,
     onPlatform: false,
@@ -37,6 +42,12 @@ const Game = () => {
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [gameSpeed, setGameSpeed] = useState(INITIAL_OBSTACLE_SPEED);
+  const [musicTrack, setMusicTrack] = useState(Math.random() > 0.5 ? normalMusic : alternateMusic);
+  const [isMuted, setIsMuted] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
   
   // Background parallax positions
   const [backgroundPositions, setBackgroundPositions] = useState({
@@ -51,15 +62,40 @@ const Game = () => {
   const obstacleTimerRef = useRef(null);
   const platformTimerRef = useRef(null);
   const difficultyTimerRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+      
+      // Adjust character position on resize to maintain proper position relative to ground
+      setCharacterPosition(prev => ({
+        ...prev,
+        x: window.innerWidth * 0.15,
+        y: window.innerHeight - GROUND_HEIGHT - CHARACTER_SIZE
+      }));
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Jump function with useCallback
   const jump = useCallback(() => {
     if (!gameOver) {
       // Allow jump if on ground/platform or if we can double jump (only once in the air)
       if (!characterPosition.isJumping || characterPosition.jumpCount < 1) {
+        // Add an immediate position boost for more responsive jumping
+        const jumpBoost = characterPosition.isJumping ? 0 : 5; // Only boost on first jump
+        
         setCharacterPosition(prev => ({
           ...prev,
           velocityY: JUMP_FORCE,
+          y: prev.y - jumpBoost, // Apply immediate position boost
           isJumping: true,
           jumpCount: prev.isJumping ? prev.jumpCount + 1 : 0
         }));
@@ -117,10 +153,10 @@ const Game = () => {
         for (let i = 0; i < spikeCount; i++) {
           spikes.push({
             id: Date.now() + i,
-            x: GAME_WIDTH + (i * 30), // Space them out
-            y: GAME_HEIGHT - GROUND_HEIGHT - 20, // Smaller height for spikes
-            width: 20,
-            height: 20,
+            x: windowDimensions.width + (i * 30), // Space them out
+            y: windowDimensions.height - GROUND_HEIGHT - 30, // Smaller height for spikes
+            width: 30,
+            height: 30,
             passed: false,
             type: 'spike'
           });
@@ -129,14 +165,14 @@ const Game = () => {
         setObstacles(prev => [...prev, ...spikes]);
       } else {
         // Normal obstacles (blocks and triangles)
-        const randomHeight = Math.random() > 0.5 ? 40 : 30;
+        const randomHeight = Math.random() > 0.5 ? 60 : 45; // Increased obstacle sizes
         setObstacles(prev => [
           ...prev, 
           { 
             id: Date.now(),
-            x: GAME_WIDTH,
-            y: GAME_HEIGHT - GROUND_HEIGHT - randomHeight,
-            width: 40,
+            x: windowDimensions.width,
+            y: windowDimensions.height - GROUND_HEIGHT - randomHeight,
+            width: 60, // Increased from 40 to 60
             height: randomHeight,
             passed: false,
             type: Math.random() > 0.5 ? 'triangle' : 'block'
@@ -144,7 +180,7 @@ const Game = () => {
         ]);
       }
     }, frequency);
-  }, []);
+  }, [windowDimensions]);
 
   // Function to start platform generation
   const startPlatformGeneration = useCallback((frequency) => {
@@ -152,15 +188,15 @@ const Game = () => {
       if (Math.random() > 0.5) {
         // Generate a column/platform
         const platformHeight = Math.floor(Math.random() * 3) + 1; // 1-3 platform height units
-        const height = platformHeight * 50; // Height in pixels
+        const height = platformHeight * 70; // Increased height in pixels
         
         setPlatforms(prev => [
           ...prev,
           {
             id: Date.now(),
-            x: GAME_WIDTH,
-            y: GAME_HEIGHT - GROUND_HEIGHT - height,
-            width: 80,
+            x: windowDimensions.width,
+            y: windowDimensions.height - GROUND_HEIGHT - height,
+            width: 120, // Increased from 80 to 120
             height: height,
             type: 'column',
             hasRing: Math.random() > 0.7 // Some columns have rings
@@ -169,22 +205,22 @@ const Game = () => {
       } else {
         // Generate a ramp
         const rampHeight = Math.floor(Math.random() * 2) + 1; // 1-2 platform height units
-        const height = rampHeight * 60; // Height in pixels
+        const height = rampHeight * 80; // Increased height in pixels
         
         setPlatforms(prev => [
           ...prev,
           {
             id: Date.now(),
-            x: GAME_WIDTH,
-            y: GAME_HEIGHT - GROUND_HEIGHT - height,
-            width: 120,
+            x: windowDimensions.width,
+            y: windowDimensions.height - GROUND_HEIGHT - height,
+            width: 160, // Increased from 120 to 160
             height: height,
             type: 'ramp'
           }
         ]);
       }
     }, frequency);
-  }, []);
+  }, [windowDimensions]);
 
   // Progressive difficulty increase
   useEffect(() => {
@@ -217,6 +253,47 @@ const Game = () => {
       }
     };
   }, [gameOver, difficultyLevel, startObstacleGeneration, startPlatformGeneration]);
+
+  // Background music
+  useEffect(() => {
+    // Create audio element
+    audioRef.current = new Audio(musicTrack);
+    audioRef.current.loop = true;
+    audioRef.current.volume = 0.5;
+    
+    // Start playing when the game starts
+    if (!gameOver && !isMuted) {
+      audioRef.current.play().catch(error => {
+        console.log("Audio play failed:", error);
+      });
+    } else {
+      // Pause when game is over or muted
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    }
+    
+    // Cleanup function
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [gameOver, musicTrack, isMuted]);
+
+  // Effect to toggle mute/unmute
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isMuted) {
+        audioRef.current.pause();
+      } else if (!gameOver) {
+        audioRef.current.play().catch(error => {
+          console.log("Audio play failed:", error);
+        });
+      }
+    }
+  }, [isMuted, gameOver]);
 
   // Generate obstacles
   useEffect(() => {
@@ -254,15 +331,17 @@ const Game = () => {
 
       // Update character
       setCharacterPosition(prev => {
-        let newVelocityY = prev.velocityY + GRAVITY;
+        // Apply more velocity at the start of a jump for better responsiveness
+        const gravityFactor = prev.velocityY < 0 ? 0.85 : 1; // Less gravity when going up
+        let newVelocityY = prev.velocityY + (GRAVITY * gravityFactor);
         let newY = prev.y + newVelocityY;
         let onPlatform = false;
         let jumpCount = prev.jumpCount;
         
         // Check for platform collisions (standing on platforms)
         platforms.forEach(platform => {
-          const charBottom = prev.y + 40;
-          const charRight = prev.x + 40;
+          const charBottom = prev.y + CHARACTER_SIZE;
+          const charRight = prev.x + CHARACTER_SIZE;
           const charLeft = prev.x;
           
           const platformTop = platform.y;
@@ -273,11 +352,11 @@ const Game = () => {
           // If character is falling onto a platform
           if (newVelocityY > 0 && 
               charBottom <= platformTop && 
-              newY + 40 >= platformTop &&
+              newY + CHARACTER_SIZE >= platformTop &&
               charRight > platformLeft && 
               charLeft < platformRight) {
                 
-            newY = platformTop - 40; // Stand on the platform
+            newY = platformTop - CHARACTER_SIZE; // Stand on the platform
             newVelocityY = 0;
             onPlatform = true;
             jumpCount = 0; // Reset jump count when landing
@@ -294,14 +373,14 @@ const Game = () => {
             
             // If character is above the ramp line
             if (charBottom >= rampY - 5 && charBottom <= rampY + 5) {
-              newY = rampY - 40;
+              newY = rampY - CHARACTER_SIZE;
               onPlatform = true;
               jumpCount = 0; // Reset jump count when on ramp
             }
           }
         });
         
-        const groundY = GAME_HEIGHT - GROUND_HEIGHT - 40;
+        const groundY = windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE;
         
         // Check if character is on the ground
         if (newY >= groundY && !onPlatform) {
@@ -344,18 +423,18 @@ const Game = () => {
       // Update background positions for parallax effect with speed scaled to difficulty
       const speedFactor = difficultyLevel > 0 ? 1 + (difficultyLevel * 0.1) : 1;
       setBackgroundPositions(prev => ({
-        stars: (prev.stars - gameSpeed * 0.2 * speedFactor) % (GAME_WIDTH * 2),
-        mountains: (prev.mountains - gameSpeed * 0.4 * speedFactor) % (GAME_WIDTH * 2),
-        city: (prev.city - gameSpeed * 0.6 * speedFactor) % (GAME_WIDTH * 2),
-        grid: (prev.grid - gameSpeed * 0.8 * speedFactor) % (GAME_WIDTH * 2)
+        stars: (prev.stars - gameSpeed * 0.2 * speedFactor) % (windowDimensions.width * 2),
+        mountains: (prev.mountains - gameSpeed * 0.4 * speedFactor) % (windowDimensions.width * 2),
+        city: (prev.city - gameSpeed * 0.6 * speedFactor) % (windowDimensions.width * 2),
+        grid: (prev.grid - gameSpeed * 0.8 * speedFactor) % (windowDimensions.width * 2)
       }));
 
       // Check for collisions and scoring
       const charPos = { 
         x: characterPosition.x,
         y: characterPosition.y,
-        width: 40,
-        height: 40
+        width: CHARACTER_SIZE,
+        height: CHARACTER_SIZE
       };
 
       setObstacles(prev => {
@@ -366,10 +445,10 @@ const Game = () => {
           if (obstacle.type === 'triangle') {
             // Triangle hit box is smaller than visual representation
             const triangleHitbox = {
-              x: obstacle.x + 10, // Add padding to make hitbox smaller
-              y: obstacle.y + 20, // Raise hitbox from bottom
-              width: 20, // Make hitbox narrower
-              height: 20  // Make hitbox shorter
+              x: obstacle.x + 15, // Adjusted for larger size
+              y: obstacle.y + 30, // Adjusted for larger size
+              width: 30, // Adjusted for larger size
+              height: 30  // Adjusted for larger size
             };
             
             if (checkCollision(charPos, triangleHitbox)) {
@@ -378,10 +457,10 @@ const Game = () => {
           } else if (obstacle.type === 'spike') {
             // Spike hit box is very small
             const spikeHitbox = {
-              x: obstacle.x + 5,
-              y: obstacle.y + 5,
-              width: 10,
-              height: 15
+              x: obstacle.x + 8,
+              y: obstacle.y + 8,
+              width: 14,
+              height: 22
             };
             
             if (checkCollision(charPos, spikeHitbox)) {
@@ -427,7 +506,7 @@ const Game = () => {
     return () => {
       cancelAnimationFrame(requestRef.current);
     };
-  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score]);
+  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score, windowDimensions]);
 
   // Helper function for collision detection
   const checkCollision = (rect1, rect2) => {
@@ -445,8 +524,8 @@ const Game = () => {
     setDifficultyLevel(0);
     setGameSpeed(INITIAL_OBSTACLE_SPEED);
     setCharacterPosition({ 
-      x: 100, 
-      y: GAME_HEIGHT - GROUND_HEIGHT - 40,
+      x: windowDimensions.width * 0.15,
+      y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
       velocityY: 0,
       isJumping: false,
       onPlatform: false,
@@ -460,13 +539,21 @@ const Game = () => {
       city: 0,
       grid: 0
     });
+    // Switch to a random music track
+    setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
     lastTimeRef.current = 0;
   };
 
   return (
     <div 
       className="game-area"
-      style={{ width: GAME_WIDTH, height: GAME_HEIGHT, background: "#151560" }}
+      style={{ 
+        width: '100vw', 
+        height: '100vh', 
+        background: `url(${capybaraPattern})`,
+        backgroundSize: 'cover',
+        overflow: 'hidden' 
+      }}
     >
       {/* Parallax background layers */}
       <div 
@@ -491,10 +578,18 @@ const Game = () => {
         Level: {DIFFICULTY_LEVELS[difficultyLevel].name} (x{DIFFICULTY_LEVELS[difficultyLevel].speedMultiplier.toFixed(1)})
       </div>
       
+      <button 
+        className="mute-button"
+        onClick={() => setIsMuted(!isMuted)}
+      >
+        {isMuted ? "🔇 Unmute" : "🔊 Mute"}
+      </button>
+      
       <Character 
         position={characterPosition} 
         isJumping={characterPosition.isJumping}
         jumpCount={characterPosition.jumpCount}
+        size={CHARACTER_SIZE}
       />
       
       {/* Render Platforms */}
@@ -519,7 +614,10 @@ const Game = () => {
         <Obstacle key={obstacle.id} obstacle={obstacle} />
       ))}
       
-      <div className="ground" />
+      <div 
+        className="ground" 
+        style={{ height: GROUND_HEIGHT }}
+      />
       
       {gameOver && (
         <div className="game-over">
