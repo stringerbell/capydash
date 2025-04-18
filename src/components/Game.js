@@ -49,6 +49,7 @@ const Game = () => {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [debugMode, setDebugMode] = useState(DEBUG_MODE_DEFAULT);
+  const [showMobileTip, setShowMobileTip] = useState(true); // Show mobile tip initially
   const [characterPosition, setCharacterPosition] = useState({ 
     x: GAME_WIDTH * 0.15, // Positioned proportionally to screen width
     y: GAME_HEIGHT - GROUND_HEIGHT - CHARACTER_SIZE,
@@ -153,14 +154,30 @@ const Game = () => {
       }
     };
 
+    // Handle touch events for mobile
+    const handleTouchStart = () => {
+      if (!gameOver) {
+        jump();
+        setIsSpacePressed(true);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      setIsSpacePressed(false);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isSpacePressed, jump]);
+  }, [isSpacePressed, jump, gameOver, debugMode]);
 
   // Handle repeated jumping when space is held down
   useEffect(() => {
@@ -704,6 +721,17 @@ const Game = () => {
     };
   }, [musicTrack, isMuted, useReducedEffects, isInNightmareMode]);
 
+  // Effect to hide mobile tip after a few seconds
+  useEffect(() => {
+    if (showMobileTip) {
+      const tipTimer = setTimeout(() => {
+        setShowMobileTip(false);
+      }, 5000); // Hide after 5 seconds
+      
+      return () => clearTimeout(tipTimer);
+    }
+  }, [showMobileTip]);
+
   return (
     <div 
       className={`game-area ${isInNightmareMode() && !useReducedEffects ? 'screen-shake' : ''}`}
@@ -714,7 +742,8 @@ const Game = () => {
           `url(${skullGif}) repeat` : 
           `url(${capybaraPattern})`,
         backgroundSize: isInNightmareMode() ? '300px 300px' : 'cover',
-        overflow: 'hidden' 
+        overflow: 'hidden',
+        touchAction: 'manipulation' // Prevent browser handling of touch events
       }}
     >
       {/* Parallax background layers */}
@@ -808,6 +837,13 @@ const Game = () => {
         </>
       )}
       
+      {/* Mobile tap indicator */}
+      {showMobileTip && !gameOver && (
+        <div className="mobile-tip">
+          👆 Tap to Jump! 👆
+        </div>
+      )}
+      
       <div className="score">Score: {score}</div>
       <div className="difficulty-indicator">
         Level: {DIFFICULTY_LEVELS[difficultyLevel].name} (x{DIFFICULTY_LEVELS[difficultyLevel].speedMultiplier.toFixed(1)})
@@ -821,13 +857,7 @@ const Game = () => {
         {isMuted ? "🔇 Unmute" : "🔊 Mute"}
       </button>
       
-      {/* Performance mode toggle */}
-      <button 
-        className={`performance-toggle ${useReducedEffects ? 'active' : ''}`}
-        onClick={() => setUseReducedEffects(!useReducedEffects)}
-      >
-        {useReducedEffects ? "🚀 Performance Mode ON" : "🔥 Performance Mode OFF"}
-      </button>
+
       
       {/* Debug controls - only visible in debug mode */}
       {debugMode && (

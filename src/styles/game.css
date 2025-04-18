@@ -17,6 +17,8 @@ body, html {
   height: 100%;
   width: 100%;
   position: fixed;
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+  user-select: none; /* Prevent text selection on mobile */
 }
 
 /* Parallax background layers */
@@ -729,4 +731,68 @@ body, html {
 .performance-toggle.active {
   background-color: rgba(60, 179, 113, 0.7);
   box-shadow: 0 0 10px rgba(60, 179, 113, 0.5);
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .difficulty-indicator {
+    font-size: 18px;
+    top: 35px;
+  }
+  
+  .score {
+    font-size: 24px;
+  }
+  
+  .mute-button,
+  .performance-toggle {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+  
+  .performance-toggle {
+    top: 100px;
+    left: 10px;
+  }
+  
+  /* Make touch targets larger on mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+.mobile-tip {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 2px solid #333;
+  border-radius: 10px;
+  padding: 10px 15px;
+  font-size: 20px;
+  font-weight: bold;
+  z-index: 100;
+  animation: bounce 1.5s infinite, fadeOut 5s forwards;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-15px);
+  }
+}
+
+@keyframes fadeOut {
+  0%, 70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 } 
