@@ -131,6 +131,11 @@ const Game = () => {
     }
   }, [gameOver, characterPosition.isJumping, characterPosition.jumpCount]);
 
+  // Helper function to check if in nightmare mode - wrapping in useCallback to fix warning
+  const isInNightmareMode = useCallback(() => {
+    return musicTrack === nightmareMusic1 || musicTrack === nightmareMusic2;
+  }, [musicTrack]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle key events
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -155,35 +160,85 @@ const Game = () => {
     };
 
     // Handle touch events for mobile
-    const handleTouchStart = () => {
-      if (!gameOver) {
+    const handleTouchStart = (e) => {
+      // Prevent default touch behavior like scrolling
+      e.preventDefault();
+      
+      // Don't handle touch events if game is over
+      if (gameOver) return;
+      
+      // Only handle single touch for now
+      if (e.touches.length === 1) {
         jump();
         setIsSpacePressed(true);
+        
+        // Hide mobile tip on first touch
+        if (showMobileTip) {
+          setShowMobileTip(false);
+        }
       }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e) => {
+      // Prevent default touch behavior
+      e.preventDefault();
+      
+      // Reset space pressed state to stop continuous jumping
+      setIsSpacePressed(false);
+    };
+    
+    // Handle mouse click for jumping
+    const handleMouseDown = (e) => {
+      // Don't handle mouse events if game is over
+      if (gameOver) return;
+      
+      jump();
+      setIsSpacePressed(true);
+      
+      // Hide mobile tip on first click
+      if (showMobileTip) {
+        setShowMobileTip(false);
+      }
+    };
+    
+    const handleMouseUp = () => {
       setIsSpacePressed(false);
     };
 
+    // Clean up all existing event listeners before adding new ones
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+    window.removeEventListener('touchstart', handleTouchStart);
+    window.removeEventListener('touchend', handleTouchEnd);
+    window.removeEventListener('mousedown', handleMouseDown);
+    window.removeEventListener('mouseup', handleMouseUp);
+    
+    // Add new event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('touchstart', handleTouchStart);
-    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchstart', handleTouchStart, { passive: false });
+      window.removeEventListener('touchend', handleTouchEnd, { passive: false });
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isSpacePressed, jump, gameOver, debugMode]);
+  }, [isSpacePressed, jump, gameOver, debugMode, showMobileTip]);
 
-  // Handle repeated jumping when space is held down
+  // Handle repeated jumping when space is held down or screen is tapped repeatedly
   useEffect(() => {
     if (isSpacePressed) {
       const now = Date.now();
-      if (now - lastJumpTime > 300) {
+      // Make jump repeat more responsive on mobile
+      const repeatDelay = /Mobi|Android/i.test(navigator.userAgent) ? 200 : 300;
+      
+      if (now - lastJumpTime > repeatDelay) {
         // For auto-repeat jumps, only allow when on ground/platform
         if (!characterPosition.isJumping) {
           jump();
@@ -637,11 +692,6 @@ const Game = () => {
     );
   };
 
-  // Helper function to check if in nightmare mode
-  const isInNightmareMode = () => {
-    return musicTrack === nightmareMusic1 || musicTrack === nightmareMusic2;
-  };
-
   // Helper function to get extreme mode message based on difficulty level
   const getExtremeMessage = () => {
     // Find indices of specific difficulty levels
@@ -657,45 +707,6 @@ const Game = () => {
     if (difficultyLevel >= nightmareIndex) return "🔥😱 NIGHTMARE MODE 😱🔥";
     if (difficultyLevel >= insaneIndex) return "🔥 INSANE MODE 🔥";
     return "🔥 EXTREME MODE 🔥";
-  };
-
-  const restartGame = () => {
-    setGameOver(false);
-    setScore(0);
-    
-    // TEMPORARY: Use start level based on our testing flag
-    const startLevel = startAtInsane ? insaneIndex : 0;
-    setDifficultyLevel(startLevel);
-    setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[startLevel].speedMultiplier);
-    
-    // Keep reduced effects enabled
-    // setUseReducedEffects(startLevel >= 8);
-    
-    setCharacterPosition({ 
-      x: windowDimensions.width * 0.15,
-      y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
-      velocityY: 0,
-      isJumping: false,
-      onPlatform: false,
-      jumpCount: 0
-    });
-    setObstacles([]);
-    setPlatforms([]);
-    setBackgroundPositions({
-      stars: 0,
-      mountains: 0,
-      city: 0,
-      grid: 0
-    });
-    
-    // TEMPORARY: Select appropriate music based on difficulty
-    if (startAtInsane) {
-      setMusicTrack(Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2);
-    } else {
-      setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
-    }
-    
-    lastTimeRef.current = 0;
   };
 
   // Effect to handle nightmare music and scream sound
@@ -743,9 +754,15 @@ const Game = () => {
           `url(${capybaraPattern})`,
         backgroundSize: isInNightmareMode() ? '300px 300px' : 'cover',
         overflow: 'hidden',
-        touchAction: 'manipulation' // Prevent browser handling of touch events
+        touchAction: 'none', // Prevent all browser touch actions
+        userSelect: 'none' // Prevent text selection
       }}
     >
+      {/* Add a mobile touch area that covers the whole screen */}
+      {/Mobi|Android/i.test(navigator.userAgent) && !gameOver && (
+        <div className="touch-area" />
+      )}
+      
       {/* Parallax background layers */}
       <div 
         className="background-layer stars" 
@@ -958,11 +975,63 @@ const Game = () => {
         style={{ height: GROUND_HEIGHT }}
       />
       
+      {/* Simple game over screen without portal */}
       {gameOver && (
-        <div className="game-over">
-          <div>Game Over</div>
-          <div>Your Score: {score}</div>
-          <button className="start-button" onClick={restartGame}>
+        <div 
+          className="game-over"
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'rgba(255, 235, 205, 0.95)',
+            padding: '20px',
+            borderRadius: '20px',
+            zIndex: 9999,
+            width: '300px',
+            textAlign: 'center'
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>Game Over</div>
+          <div style={{ fontSize: '24px', marginBottom: '20px' }}>Your Score: {score}</div>
+          <button 
+            onClick={() => {
+              console.log("Restarting game...");
+              // Reset key states first
+              setGameOver(false);
+              setScore(0);
+              setObstacles([]);
+              setPlatforms([]);
+              
+              // Then reset character position
+              setCharacterPosition({ 
+                x: windowDimensions.width * 0.15,
+                y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
+                velocityY: 0,
+                isJumping: false,
+                onPlatform: false,
+                jumpCount: 0
+              });
+              
+              // Reset difficulty
+              setDifficultyLevel(0);
+              setGameSpeed(INITIAL_OBSTACLE_SPEED);
+              
+              // Reset music
+              setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+              
+              lastTimeRef.current = 0;
+            }}
+            style={{
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              padding: '15px 30px',
+              fontSize: '20px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
             Play Again
           </button>
         </div>
