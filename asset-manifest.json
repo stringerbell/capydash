@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/static/css/main.a81c8a19.css",
+    "main.js": "/static/js/main.b2b050ec.js",
+    "static/media/nightmare-1.mp3": "/static/media/nightmare-1.776b42fb08aeb339fe63.mp3",
+    "static/media/alternate.mp3": "/static/media/alternate.24f2912012f2e6fd8514.mp3",
+    "static/media/nightmare-2.mp3": "/static/media/nightmare-2.642ce57ab821e3264b57.mp3",
+    "static/media/normal.mp3": "/static/media/normal.d904d8ce26efe5aff615.mp3",
+    "static/media/Cute_Capybara_Character_Seamless_Pattern_high_resolution_preview_2105908.jpg": "/static/media/Cute_Capybara_Character_Seamless_Pattern_high_resolution_preview_2105908.2353d62749078a47ef96.jpg",
+    "static/media/character-optimized-xl.png": "/static/media/character-optimized-xl.57707ae39615f1397fab.png",
+    "static/media/skull.gif": "/static/media/skull.d2480dd2bb117d6bc844.gif",
+    "index.html": "/index.html",
+    "main.a81c8a19.css.map": "/static/css/main.a81c8a19.css.map",
+    "main.b2b050ec.js.map": "/static/js/main.b2b050ec.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a81c8a19.css",
+    "static/js/main.b2b050ec.js"
+  ]
+}
