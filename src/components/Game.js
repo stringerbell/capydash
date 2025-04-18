@@ -35,6 +35,12 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const Game = () => {
+  // TEMPORARY FOR TESTING: Starting at Insane level with invincibility
+  // TO REVERT TESTING CHANGES: Simply set this flag to false
+  // All testing features will be disabled automatically
+  const startAtInsane = false; // Set to false to revert
+  const insaneIndex = DIFFICULTY_LEVELS.findIndex(level => level.name === "Insane");
+  
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [characterPosition, setCharacterPosition] = useState({ 
@@ -49,10 +55,15 @@ const Game = () => {
   const [platforms, setPlatforms] = useState([]);
   const [lastJumpTime, setLastJumpTime] = useState(0);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [difficultyLevel, setDifficultyLevel] = useState(0);
-  const [gameSpeed, setGameSpeed] = useState(INITIAL_OBSTACLE_SPEED);
-  const [musicTrack, setMusicTrack] = useState(Math.random() > 0.5 ? normalMusic : alternateMusic);
+  const [difficultyLevel, setDifficultyLevel] = useState(startAtInsane ? insaneIndex : 0);
+  const [gameSpeed, setGameSpeed] = useState(startAtInsane ? 
+    INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[insaneIndex].speedMultiplier : 
+    INITIAL_OBSTACLE_SPEED);
+  const [musicTrack, setMusicTrack] = useState(startAtInsane ? 
+    (Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2) : 
+    (Math.random() > 0.5 ? normalMusic : alternateMusic));
   const [isMuted, setIsMuted] = useState(false);
+  const [isInvincible, setIsInvincible] = useState(startAtInsane); // TEMPORARY: Make player invincible
   const [windowDimensions, setWindowDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight
@@ -460,6 +471,12 @@ const Game = () => {
         let scoreIncreased = false;
         
         prev.forEach(obstacle => {
+          // Update score when passing an obstacle
+          if (!obstacle.passed && charPos.x > obstacle.x + obstacle.width) {
+            obstacle.passed = true;
+            scoreIncreased = true;
+          }
+
           // Different collision detection for different obstacle types
           if (obstacle.type === 'triangle') {
             // Triangle hit box is smaller than visual representation
@@ -470,7 +487,8 @@ const Game = () => {
               height: 30  // Adjusted for larger size
             };
             
-            if (checkCollision(charPos, triangleHitbox)) {
+            // Only check collision if not invincible
+            if (checkCollision(charPos, triangleHitbox) && !isInvincible) {
               setGameOver(true);
             }
           } else if (obstacle.type === 'spike') {
@@ -482,20 +500,16 @@ const Game = () => {
               height: 22
             };
             
-            if (checkCollision(charPos, spikeHitbox)) {
+            // Only check collision if not invincible
+            if (checkCollision(charPos, spikeHitbox) && !isInvincible) {
               setGameOver(true);
             }
           } else {
             // Standard rectangular collision for blocks
-            if (checkCollision(charPos, obstacle)) {
+            // Only check collision if not invincible
+            if (checkCollision(charPos, obstacle) && !isInvincible) {
               setGameOver(true);
             }
-          }
-
-          // Update score when passing an obstacle
-          if (!obstacle.passed && charPos.x > obstacle.x + obstacle.width) {
-            obstacle.passed = true;
-            scoreIncreased = true;
           }
         });
 
@@ -535,7 +549,7 @@ const Game = () => {
     return () => {
       cancelAnimationFrame(requestRef.current);
     };
-  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score, windowDimensions, musicTrack]);
+  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score, windowDimensions, musicTrack, isInvincible]);
 
   // Helper function for collision detection
   const checkCollision = (rect1, rect2) => {
@@ -572,8 +586,12 @@ const Game = () => {
   const restartGame = () => {
     setGameOver(false);
     setScore(0);
-    setDifficultyLevel(0);
-    setGameSpeed(INITIAL_OBSTACLE_SPEED);
+    
+    // TEMPORARY: Use start level based on our testing flag
+    const startLevel = startAtInsane ? insaneIndex : 0;
+    setDifficultyLevel(startLevel);
+    setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[startLevel].speedMultiplier);
+    
     setCharacterPosition({ 
       x: windowDimensions.width * 0.15,
       y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
@@ -590,10 +608,39 @@ const Game = () => {
       city: 0,
       grid: 0
     });
-    // Reset to normal/alternate music when restarting game
-    setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+    
+    // TEMPORARY: Select appropriate music based on difficulty
+    if (startAtInsane) {
+      setMusicTrack(Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2);
+    } else {
+      setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+    }
+    
     lastTimeRef.current = 0;
   };
+
+  // Effect to handle nightmare music and scream sound
+  useEffect(() => {
+    // Create audio element for nightmare scream
+    let screamSound = null;
+    
+    // When entering nightmare mode, play a scream
+    if (isInNightmareMode() && !isMuted) {
+      // Create and play scream sound
+      screamSound = new Audio();
+      screamSound.src = 'https://www.fesliyanstudios.com/play-mp3/6382'; // Evil laugh sound effect
+      screamSound.volume = 0.7;
+      screamSound.play().catch(error => {
+        console.log("Scream sound play failed:", error);
+      });
+    }
+    
+    return () => {
+      if (screamSound) {
+        screamSound.pause();
+      }
+    };
+  }, [musicTrack, isMuted]);
 
   return (
     <div 
@@ -601,8 +648,10 @@ const Game = () => {
       style={{ 
         width: '100vw', 
         height: '100vh', 
-        background: `url(${capybaraPattern})`,
-        backgroundSize: 'cover',
+        background: isInNightmareMode() ? 
+          `url(${skullGif}) repeat` : 
+          `url(${capybaraPattern})`,
+        backgroundSize: isInNightmareMode() ? '300px 300px' : 'cover',
         overflow: 'hidden' 
       }}
     >
@@ -627,7 +676,67 @@ const Game = () => {
       {/* Nightmare mode effects */}
       {isInNightmareMode() && (
         <>
-          <div className="skull-overlay" />
+          {/* Dark overlay for better contrast with skull pattern */}
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 5
+            }}
+          />
+          
+          {/* Blood drips */}
+          <div className="blood-drips" />
+          
+          {/* Centered large skull */}
+          <div 
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '800px',
+              height: '800px',
+              backgroundImage: `url(${skullGif})`,
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center',
+              opacity: 0.8,
+              zIndex: 6,
+              filter: 'drop-shadow(0 0 30px red) brightness(1.2)',
+              animation: 'pulsate 2s infinite alternate'
+            }}
+          />
+          
+          {/* Multiple floating skulls */}
+          {[...Array(8)].map((_, i) => (
+            <div 
+              key={`skull-${i}`}
+              className={`floating-skull skull-${i}`}
+              style={{
+                position: 'fixed',
+                top: `${Math.random() * 80}%`,
+                left: `${Math.random() * 80}%`,
+                width: `${80 + Math.random() * 120}px`,
+                height: `${80 + Math.random() * 120}px`,
+                backgroundImage: `url(${skullGif})`,
+                backgroundSize: 'contain',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                opacity: 0.5,
+                zIndex: 6,
+                filter: 'drop-shadow(0 0 10px red)'
+              }}
+            />
+          ))}
+          
+          {/* Red vignette effect */}
+          <div className="vignette" />
+          
           <div className="nightmare-background" />
         </>
       )}
@@ -637,12 +746,61 @@ const Game = () => {
         Level: {DIFFICULTY_LEVELS[difficultyLevel].name} (x{DIFFICULTY_LEVELS[difficultyLevel].speedMultiplier.toFixed(1)})
       </div>
       
+      {/* Mute button */}
       <button 
         className="mute-button"
         onClick={() => setIsMuted(!isMuted)}
       >
         {isMuted ? "🔇 Unmute" : "🔊 Mute"}
       </button>
+      
+      {/* TEMPORARY: Invincibility toggle */}
+      <button 
+        className={`invincible-toggle ${isInvincible ? 'active' : ''}`}
+        onClick={() => setIsInvincible(!isInvincible)}
+      >
+        {isInvincible ? "🛡️ Invincible ON" : "⚔️ Invincible OFF"}
+      </button>
+      
+      {/* TEMPORARY: Difficulty selector */}
+      <div style={{
+        position: 'absolute',
+        top: 200,
+        right: 10,
+        zIndex: 100,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '5px'
+      }}>
+        {DIFFICULTY_LEVELS.map((level, index) => (
+          <button 
+            key={level.name}
+            style={{
+              backgroundColor: difficultyLevel === index ? 'rgba(255, 215, 0, 0.8)' : 'rgba(100, 100, 100, 0.8)',
+              border: `2px solid ${difficultyLevel === index ? '#b8860b' : '#444'}`,
+              borderRadius: '8px',
+              color: difficultyLevel === index ? 'black' : 'white',
+              padding: '5px 8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              opacity: difficultyLevel === index ? 1 : 0.8
+            }}
+            onClick={() => {
+              setDifficultyLevel(index);
+              setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[index].speedMultiplier);
+              // Switch music based on difficulty
+              if (index >= insaneIndex) {
+                setMusicTrack(Math.random() > 0.5 ? nightmareMusic1 : nightmareMusic2);
+              } else {
+                setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+              }
+            }}
+          >
+            {level.name}
+          </button>
+        ))}
+      </div>
       
       {/* Nightmare mode indicator */}
       {isInNightmareMode() && 
