@@ -7,6 +7,7 @@ import normalMusic from '../assets/normal.mp3';
 import alternateMusic from '../assets/alternate.mp3';
 import nightmareMusic1 from '../nightmare-1.mp3';
 import nightmareMusic2 from '../nightmare-2.mp3';
+import skullGif from '../skull.gif';
 
 // Using window dimensions for full-screen
 const GAME_WIDTH = window.innerWidth;
@@ -546,6 +547,11 @@ const Game = () => {
     );
   };
 
+  // Helper function to check if in nightmare mode
+  const isInNightmareMode = () => {
+    return musicTrack === nightmareMusic1 || musicTrack === nightmareMusic2;
+  };
+
   // Helper function to get extreme mode message based on difficulty level
   const getExtremeMessage = () => {
     // Find indices of specific difficulty levels
@@ -559,7 +565,8 @@ const Game = () => {
     if (difficultyLevel >= godzillaIndex) return "🔥👹 GODZILLA MODE 👹🔥";
     if (difficultyLevel >= hellIndex) return "🔥👿 HELL MODE 👿🔥";
     if (difficultyLevel >= nightmareIndex) return "🔥😱 NIGHTMARE MODE 😱🔥";
-    return "🔥 INSANE MODE 🔥";
+    if (difficultyLevel >= insaneIndex) return "🔥 INSANE MODE 🔥";
+    return "🔥 EXTREME MODE 🔥";
   };
 
   const restartGame = () => {
@@ -590,7 +597,7 @@ const Game = () => {
 
   return (
     <div 
-      className="game-area"
+      className={`game-area ${isInNightmareMode() ? 'screen-shake' : ''}`}
       style={{ 
         width: '100vw', 
         height: '100vh', 
@@ -617,6 +624,14 @@ const Game = () => {
         style={{ left: backgroundPositions.grid }}
       />
       
+      {/* Nightmare mode effects */}
+      {isInNightmareMode() && (
+        <>
+          <div className="skull-overlay" />
+          <div className="nightmare-background" />
+        </>
+      )}
+      
       <div className="score">Score: {score}</div>
       <div className="difficulty-indicator">
         Level: {DIFFICULTY_LEVELS[difficultyLevel].name} (x{DIFFICULTY_LEVELS[difficultyLevel].speedMultiplier.toFixed(1)})
@@ -630,7 +645,7 @@ const Game = () => {
       </button>
       
       {/* Nightmare mode indicator */}
-      {(musicTrack === nightmareMusic1 || musicTrack === nightmareMusic2) && 
+      {isInNightmareMode() && 
         <div className="nightmare-mode">
           {getExtremeMessage()}
         </div>
@@ -641,13 +656,14 @@ const Game = () => {
         isJumping={characterPosition.isJumping}
         jumpCount={characterPosition.jumpCount}
         size={CHARACTER_SIZE}
+        isNightmareMode={isInNightmareMode()}
       />
       
       {/* Render Platforms */}
       {platforms.map(platform => (
         <div 
           key={platform.id}
-          className={`platform ${platform.type}`}
+          className={`platform ${platform.type} ${isInNightmareMode() ? 'nightmare-platform' : ''}`}
           style={{
             left: platform.x,
             top: platform.y,
@@ -656,17 +672,21 @@ const Game = () => {
           }}
         >
           {platform.hasRing && (
-            <div className="ring"></div>
+            <div className={`ring ${isInNightmareMode() ? 'nightmare-ring' : ''}`}></div>
           )}
         </div>
       ))}
       
       {obstacles.map(obstacle => (
-        <Obstacle key={obstacle.id} obstacle={obstacle} />
+        <Obstacle 
+          key={obstacle.id} 
+          obstacle={obstacle} 
+          isNightmareMode={isInNightmareMode()}
+        />
       ))}
       
       <div 
-        className="ground" 
+        className={`ground ${isInNightmareMode() ? 'nightmare-ground' : ''}`} 
         style={{ height: GROUND_HEIGHT }}
       />
       
