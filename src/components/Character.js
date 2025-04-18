@@ -1,4 +1,5 @@
 import React from 'react';
+import characterImage from '../assets/character-optimized.png';
 
 const Character = ({ position, isJumping, jumpCount }) => {
   return (
@@ -7,7 +8,10 @@ const Character = ({ position, isJumping, jumpCount }) => {
       style={{
         left: position.x,
         top: position.y,
-        transform: isJumping ? (jumpCount > 0 ? 'rotate(90deg)' : 'rotate(45deg)') : 'rotate(0deg)'
+        transform: isJumping ? (jumpCount > 0 ? 'rotate(90deg)' : 'rotate(45deg)') : 'rotate(0deg)',
+        backgroundImage: `url(${characterImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
       }}
     />
   );

@@ -7,16 +7,17 @@ const GAME_WIDTH = 800;
 const GAME_HEIGHT = 400;
 const GRAVITY = 1;
 const JUMP_FORCE = -16;
-const INITIAL_OBSTACLE_SPEED = 7;
+const INITIAL_OBSTACLE_SPEED = 9;
 const GROUND_HEIGHT = 50;
 
-// Difficulty levels
+// Difficulty levels - more challenging progression
 const DIFFICULTY_LEVELS = [
-  { name: "Easy", speedMultiplier: 1.0, obstacleFrequency: 2500, platformFrequency: 5000 },
-  { name: "Medium", speedMultiplier: 1.2, obstacleFrequency: 2200, platformFrequency: 4500 },
-  { name: "Hard", speedMultiplier: 1.4, obstacleFrequency: 2000, platformFrequency: 4000 },
-  { name: "Expert", speedMultiplier: 1.6, obstacleFrequency: 1800, platformFrequency: 3500 },
-  { name: "Insane", speedMultiplier: 1.8, obstacleFrequency: 1600, platformFrequency: 3000 }
+  { name: "Normal", speedMultiplier: 1.0, obstacleFrequency: 2000, platformFrequency: 4000 }, // Faster initial frequencies
+  { name: "Hard", speedMultiplier: 1.3, obstacleFrequency: 1700, platformFrequency: 3500 },
+  { name: "Very Hard", speedMultiplier: 1.6, obstacleFrequency: 1500, platformFrequency: 3000 },
+  { name: "Extreme", speedMultiplier: 2.0, obstacleFrequency: 1300, platformFrequency: 2500 },
+  { name: "Impossible", speedMultiplier: 2.5, obstacleFrequency: 1100, platformFrequency: 2000 },
+  { name: "Nightmare", speedMultiplier: 3.0, obstacleFrequency: 900, platformFrequency: 1800 }
 ];
 
 const Game = () => {
@@ -104,38 +105,6 @@ const Game = () => {
     }
   }, [isSpacePressed, characterPosition.isJumping, lastJumpTime, jump]);
 
-  // Progressive difficulty increase
-  useEffect(() => {
-    if (!gameOver) {
-      difficultyTimerRef.current = setInterval(() => {
-        const newDifficulty = Math.min(difficultyLevel + 1, DIFFICULTY_LEVELS.length - 1);
-        setDifficultyLevel(newDifficulty);
-        
-        // Update game speed based on new difficulty
-        const newSpeed = INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[newDifficulty].speedMultiplier;
-        setGameSpeed(newSpeed);
-        
-        // Clear and reset obstacle timers with new frequency
-        if (obstacleTimerRef.current) {
-          clearInterval(obstacleTimerRef.current);
-          startObstacleGeneration(DIFFICULTY_LEVELS[newDifficulty].obstacleFrequency);
-        }
-        
-        // Clear and reset platform timers with new frequency
-        if (platformTimerRef.current) {
-          clearInterval(platformTimerRef.current);
-          startPlatformGeneration(DIFFICULTY_LEVELS[newDifficulty].platformFrequency);
-        }
-      }, 30000); // Increase difficulty every 30 seconds
-    }
-    
-    return () => {
-      if (difficultyTimerRef.current) {
-        clearInterval(difficultyTimerRef.current);
-      }
-    };
-  }, [gameOver, difficultyLevel]);
-
   // Function to start obstacle generation
   const startObstacleGeneration = useCallback((frequency) => {
     obstacleTimerRef.current = setInterval(() => {
@@ -216,6 +185,38 @@ const Game = () => {
       }
     }, frequency);
   }, []);
+
+  // Progressive difficulty increase
+  useEffect(() => {
+    if (!gameOver) {
+      difficultyTimerRef.current = setInterval(() => {
+        const newDifficulty = Math.min(difficultyLevel + 1, DIFFICULTY_LEVELS.length - 1);
+        setDifficultyLevel(newDifficulty);
+        
+        // Update game speed based on new difficulty
+        const newSpeed = INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[newDifficulty].speedMultiplier;
+        setGameSpeed(newSpeed);
+        
+        // Clear and reset obstacle timers with new frequency
+        if (obstacleTimerRef.current) {
+          clearInterval(obstacleTimerRef.current);
+          startObstacleGeneration(DIFFICULTY_LEVELS[newDifficulty].obstacleFrequency);
+        }
+        
+        // Clear and reset platform timers with new frequency
+        if (platformTimerRef.current) {
+          clearInterval(platformTimerRef.current);
+          startPlatformGeneration(DIFFICULTY_LEVELS[newDifficulty].platformFrequency);
+        }
+      }, 20000); // Decreased from 30000 to 20000 - faster difficulty progression
+    }
+    
+    return () => {
+      if (difficultyTimerRef.current) {
+        clearInterval(difficultyTimerRef.current);
+      }
+    };
+  }, [gameOver, difficultyLevel, startObstacleGeneration, startPlatformGeneration]);
 
   // Generate obstacles
   useEffect(() => {
@@ -340,12 +341,13 @@ const Game = () => {
           .filter(platform => platform.x > -200);
       });
       
-      // Update background positions for parallax effect
+      // Update background positions for parallax effect with speed scaled to difficulty
+      const speedFactor = difficultyLevel > 0 ? 1 + (difficultyLevel * 0.1) : 1;
       setBackgroundPositions(prev => ({
-        stars: (prev.stars - gameSpeed * 0.2) % (GAME_WIDTH * 2),
-        mountains: (prev.mountains - gameSpeed * 0.4) % (GAME_WIDTH * 2),
-        city: (prev.city - gameSpeed * 0.6) % (GAME_WIDTH * 2),
-        grid: (prev.grid - gameSpeed * 0.8) % (GAME_WIDTH * 2)
+        stars: (prev.stars - gameSpeed * 0.2 * speedFactor) % (GAME_WIDTH * 2),
+        mountains: (prev.mountains - gameSpeed * 0.4 * speedFactor) % (GAME_WIDTH * 2),
+        city: (prev.city - gameSpeed * 0.6 * speedFactor) % (GAME_WIDTH * 2),
+        grid: (prev.grid - gameSpeed * 0.8 * speedFactor) % (GAME_WIDTH * 2)
       }));
 
       // Check for collisions and scoring
@@ -401,6 +403,15 @@ const Game = () => {
 
         if (scoreIncreased) {
           setScore(prev => prev + 1);
+          
+          // Increase difficulty based on score milestones
+          if (score > 0 && score % 15 === 0) {
+            const newDifficulty = Math.min(difficultyLevel + 1, DIFFICULTY_LEVELS.length - 1);
+            if (newDifficulty > difficultyLevel) {
+              setDifficultyLevel(newDifficulty);
+              setGameSpeed(INITIAL_OBSTACLE_SPEED * DIFFICULTY_LEVELS[newDifficulty].speedMultiplier);
+            }
+          }
         }
 
         return prev;
@@ -416,7 +427,7 @@ const Game = () => {
     return () => {
       cancelAnimationFrame(requestRef.current);
     };
-  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed]);
+  }, [gameOver, characterPosition.x, characterPosition.y, platforms, gameSpeed, difficultyLevel, score]);
 
   // Helper function for collision detection
   const checkCollision = (rect1, rect2) => {

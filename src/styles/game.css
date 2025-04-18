@@ -77,13 +77,14 @@
 .character {
   width: 40px;
   height: 40px;
-  background-color: #4eff4e;
-  border: 2px solid #333;
+  background-color: transparent;
   position: absolute;
   left: 100px;
   transform-origin: center;
   transition: transform 0.1s;
   z-index: 10;
+  border-radius: 20%;
+  overflow: hidden;
 }
 
 .character.jumping {
@@ -92,9 +93,8 @@
 
 .character.double-jumping {
   animation: doubleJumpAnimation 0.3s linear infinite;
-  background-color: #4eff9e;
+  filter: brightness(1.5) hue-rotate(45deg);
   box-shadow: 0 0 15px #4eff9e;
-  border-color: #fff;
 }
 
 @keyframes rotateCharacter {
