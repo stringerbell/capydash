@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#151560" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,19 +16,61 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>CapyDash</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        /* Allow scrolling on the start screen */
+        overflow: auto;
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+      /* Only disable touch action during gameplay */
+      .game-started {
+        touch-action: none;
+        overflow: hidden;
+        position: fixed;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script>
-      // Prevent pull-to-refresh and other unwanted behaviors on mobile
+      // Only prevent default touch behavior during gameplay
+      let gameStarted = false;
+      
       document.addEventListener('touchmove', function(e) {
-        e.preventDefault();
+        if (gameStarted) {
+          e.preventDefault();
+        }
       }, { passive: false });
       
       // Prevent context menu on right-click or long press
       document.addEventListener('contextmenu', function(e) {
         e.preventDefault();
+      });
+      
+      // Handle game start event
+      window.addEventListener('gameStart', function() {
+        gameStarted = true;
+        document.body.classList.add('game-started');
+      });
+      
+      // Force reflow on orientation change to ensure proper rendering
+      window.addEventListener('orientationchange', function() {
+        setTimeout(function() {
+          window.scrollTo(0, 0);
+          const viewport = document.querySelector('meta[name=viewport]');
+          viewport.setAttribute('content', viewport.getAttribute('content'));
+        }, 300);
       });
     </script>
   </body>

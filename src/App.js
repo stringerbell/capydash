@@ -5,16 +5,23 @@ import './styles/index.css';
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [orientation, setOrientation] = useState('portrait');
   
-  // Detect if the user is on a mobile device
+  // Detect if the user is on a mobile device and orientation
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(/Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 768);
+      const isMobileDevice = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+      setIsMobile(isMobileDevice);
+      setOrientation(window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
   }, []);
   
   const startGame = () => {
@@ -24,6 +31,13 @@ function App() {
         console.error(`Error attempting to enable full-screen mode: ${err.message}`);
       });
     }
+    
+    // Dispatch event to notify that game has started
+    window.dispatchEvent(new Event('gameStart'));
+    
+    // Scroll to top to ensure game is fully visible
+    window.scrollTo(0, 0);
+    
     setGameStarted(true);
   };
   
@@ -31,33 +45,40 @@ function App() {
     <div className="game-container">
       <h1 className="game-title">CapyDash</h1>
       {!gameStarted ? (
-        <div className="start-screen">
-          <h1>Welcome to CapyDash!</h1>
-          <p>Jump over obstacles and survive as long as you can</p>
-          
-          {isMobile ? (
-            <div className="mobile-instructions">
-              <p><span className="emoji">👆</span> Tap anywhere on screen to jump</p>
-              <p><span className="emoji">👆👆</span> Tap again while in the air to double jump!</p>
+        isMobile ? (
+          // Simpler mobile start screen
+          <div className="mobile-start-screen">
+            <h1>Welcome to CapyDash!</h1>
+            <p>Jump over obstacles and survive</p>
+            
+            <div className="instructions">
+              <p><span className="emoji">👆</span> Tap to jump</p>
+              <p><span className="emoji">👆👆</span> Double tap to double jump</p>
               <p><span className="emoji">👆👆👆</span> Tap rapidly to jump repeatedly</p>
-              <p className="tip">For best experience, keep your finger ready near the center of the screen</p>
-              
-              <button className="start-button" onClick={startGame}>
-                Start Game
-              </button>
             </div>
-          ) : (
-            <>
-              <p>Press SPACE to jump over obstacles</p>
-              <p>Press SPACE again in mid-air to double jump!</p>
-              <p>Hold SPACE to jump repeatedly when on the ground</p>
-              
-              <button className="start-button" onClick={startGame}>
-                Start Game
-              </button>
-            </>
-          )}
-        </div>
+            
+            <button 
+              className="start-button" 
+              onClick={startGame}
+            >
+              START GAME
+            </button>
+          </div>
+        ) : (
+          // Desktop start screen
+          <div className={`start-screen ${orientation}`}>
+            <h1>Welcome to CapyDash!</h1>
+            <p>Jump over obstacles and survive as long as you can</p>
+            
+            <p>Press SPACE to jump over obstacles</p>
+            <p>Press SPACE again in mid-air to double jump!</p>
+            <p>Hold SPACE to jump repeatedly when on the ground</p>
+            
+            <button className="start-button" onClick={startGame}>
+              Start Game
+            </button>
+          </div>
+        )
       ) : (
         <Game />
       )}
