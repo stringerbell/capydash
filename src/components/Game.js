@@ -164,8 +164,12 @@ const Game = () => {
       // Prevent default touch behavior like scrolling
       e.preventDefault();
       
-      // Don't handle touch events if game is over
-      if (gameOver) return;
+      // If game is over, don't return early - we need to handle button touches
+      // Check if the touch is on a button in the game over screen
+      if (gameOver) {
+        // Don't set isSpacePressed for game over screen
+        return;
+      }
       
       // Only handle single touch for now
       if (e.touches.length === 1) {
@@ -182,6 +186,9 @@ const Game = () => {
     const handleTouchEnd = (e) => {
       // Prevent default touch behavior
       e.preventDefault();
+      
+      // Don't block touch end events when game is over
+      // This allows button clicks to register
       
       // Reset space pressed state to stop continuous jumping
       setIsSpacePressed(false);
@@ -1022,6 +1029,36 @@ const Game = () => {
               
               lastTimeRef.current = 0;
             }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log("TouchEnd on Play Again button");
+              
+              // Reset key states first
+              setGameOver(false);
+              setScore(0);
+              setObstacles([]);
+              setPlatforms([]);
+              
+              // Then reset character position
+              setCharacterPosition({ 
+                x: windowDimensions.width * 0.15,
+                y: windowDimensions.height - GROUND_HEIGHT - CHARACTER_SIZE,
+                velocityY: 0,
+                isJumping: false,
+                onPlatform: false,
+                jumpCount: 0
+              });
+              
+              // Reset difficulty
+              setDifficultyLevel(0);
+              setGameSpeed(INITIAL_OBSTACLE_SPEED);
+              
+              // Reset music
+              setMusicTrack(Math.random() > 0.5 ? normalMusic : alternateMusic);
+              
+              lastTimeRef.current = 0;
+            }}
             style={{
               backgroundColor: '#4CAF50',
               color: 'white',
@@ -1029,7 +1066,15 @@ const Game = () => {
               fontSize: '20px',
               border: 'none',
               borderRadius: '5px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+              WebkitTouchCallout: 'none',
+              userSelect: 'none',
+              minHeight: '44px',
+              minWidth: '120px',
+              position: 'relative',
+              zIndex: 2500
             }}
           >
             Play Again
